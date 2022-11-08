@@ -3,6 +3,7 @@
  * @author kai_Ker (kai_Ker@buaa.edu.cn)
  * @brief the source file of the unstopped dragon game
  * @date 2022-11-04
+ * @version 1.10
  *
  * @copyright Copyright (c) 2022
  *
@@ -52,7 +53,7 @@
 
 #define KY_NULL 224
 
-#define FOOD 0xffffffff
+#define FOOD 0xffffff00 // food: 0xffffff00 ~ 0xffffffff
 #define WALL 0xffff0000
 
 #define DIRECTION_UP 1
@@ -80,6 +81,7 @@ bool UD_Move(int, int *, int, int);
 bool UD_EatFood(int, int *, int, int);
 void UD_SpawnFood(int *, int);
 void UD_SpawnWall(int *, int);
+bool UD_FoodJudge(int);
 
 int main(void) {
     // vars
@@ -158,6 +160,11 @@ RESTART:
         if (UD_EatFood(direction, (int *) map, SIZE, len)) {
             score += 5;
             ++len;
+            UD_SpawnFood((int *) map, SIZE);
+        }
+
+        // spawn the food randomly
+        if (rand() % 15 == 1) {
             UD_SpawnFood((int *) map, SIZE);
         }
 
@@ -242,16 +249,17 @@ void SC_Draw(int *map, int size, int len) {
     for (int i = 0; i < size; ++i) {
         // display[(i + 1) * cols + 0] = '|';
         for (int j = 0; j < size; ++j) {
-            if ((*(pArr + i))[j] == len) {
+            int val = (*(pArr + i))[j];
+            if (val == len) {
                 display[(i + 1) * cols + 0 + j * 2 + 1] = '{';
                 display[(i + 1) * cols + 0 + j * 2 + 2] = '}';
-            } else if ((*(pArr + i))[j] > 0) {
+            } else if (val > 0) {
                 display[(i + 1) * cols + 0 + j * 2 + 1] = '(';
                 display[(i + 1) * cols + 0 + j * 2 + 2] = ')';
-            } else if ((*(pArr + i))[j] == FOOD) {
+            } else if (UD_FoodJudge(val)) {
                 display[(i + 1) * cols + 0 + j * 2 + 1] = '$';
-                display[(i + 1) * cols + 0 + j * 2 + 2] = '$';
-            } else if ((*(pArr + i))[j] == WALL) {
+                display[(i + 1) * cols + 0 + j * 2 + 2] = '1' + (-val) / 10;
+            } else if (val == WALL) {
                 display[(i + 1) * cols + 0 + j * 2 + 1] = 'X';
                 display[(i + 1) * cols + 0 + j * 2 + 2] = 'X';
             } else {
@@ -357,6 +365,9 @@ bool UD_Move(int direction, int *map, int size, int len) {
             if ((*(pArr + i))[j] >= 1) {
                 (*(pArr + i))[j]--;
             }
+            if ((*(pArr + i))[j] >= FOOD && (*(pArr + i))[j] < 0) {
+                (*(pArr + i))[j]++;
+            }
         }
     }
 
@@ -409,22 +420,22 @@ bool UD_EatFood(int direction, int *map, int size, int len) {
             if ((*(pArr + i))[j] == len) {
                 switch (direction) {
                 case DIRECTION_UP:
-                    if (i > 0 && (*(pArr + i - 1))[j] == FOOD) {
+                    if (i > 0 && UD_FoodJudge((*(pArr + i - 1))[j])) {
                         eat_food = true;
                     }
                     break;
                 case DIRECTION_DOWN:
-                    if (i < size - 1 && (*(pArr + i + 1))[j] == FOOD) {
+                    if (i < size - 1 && UD_FoodJudge((*(pArr + i + 1))[j])) {
                         eat_food = true;
                     }
                     break;
                 case DIRECTION_LEFT:
-                    if (j > 0 && (*(pArr + i))[j - 1] == FOOD) {
+                    if (j > 0 && UD_FoodJudge((*(pArr + i))[j - 1])) {
                         eat_food = true;
                     }
                     break;
                 case DIRECTION_RIGHT:
-                    if (j < size - 1 && (*(pArr + i))[j + 1] == FOOD) {
+                    if (j < size - 1 && UD_FoodJudge((*(pArr + i))[j + 1])) {
                         eat_food = true;
                     }
                     break;
@@ -458,7 +469,7 @@ void UD_SpawnFood(int *map, int size) {
         int x = rand() % size;
         int y = rand() % size;
         if ((*(pArr + x))[y] == 0) {
-            (*(pArr + x))[y] = FOOD;
+            (*(pArr + x))[y] = FOOD + rand() % 20 + 200;
             return;
         }
     }
@@ -484,4 +495,15 @@ void UD_SpawnWall(int *map, int size) {
     pArr[size - 2][size / 3] = pArr[size - 2][2 * size / 3] = WALL;
     pArr[size / 3][size / 3] = pArr[size / 3][2 * size / 3] = WALL;
     pArr[size / 3 * 2][size / 3] = pArr[size / 3 * 2][2 * size / 3] = WALL;
+}
+
+/**
+ * @brief judge whether a value is a food
+ *
+ * @param val
+ * @return true
+ * @return false
+ */
+bool UD_FoodJudge(int val) {
+    return val >= FOOD && val < 0;
 }
