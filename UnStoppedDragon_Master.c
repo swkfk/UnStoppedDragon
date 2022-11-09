@@ -3,7 +3,7 @@
  * @author kai_Ker (kai_Ker@buaa.edu.cn)
  * @brief the source file of the unstopped dragon game
  * @date 2022-11-04
- * @version 1.10
+ * @version 1.11
  *
  * @copyright Copyright (c) 2022
  *
@@ -33,6 +33,7 @@
  *
  * if eat the food, every value will plus one, before minus one
  */
+#include "Utils/CharArray.h"
 #include <conio.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -236,46 +237,32 @@ void CR_Init(_Out_ int *map, _In_ int size, _Out_ int *direction) {
  * @param size
  */
 void SC_Draw(int *map, int size, int len) {
+    PSTRING pDisplay = CA_CreateObject();
     int(*pArr)[size] = (int(*)[size]) map;
-    int   cols       = size * 2 + 3;
-    int   lines      = size + 2;
-    char *display    = (char *) malloc(sizeof(char) * lines * cols + 1);
-    memset(display, ' ', sizeof(char) * lines * cols + 1);
-    // for (int i = 0; i <= size; ++i) {
-    //     display[i * 2 + 1] = '-';
-    //     // display[i * 2]     = ' ';
-    // }
-    display[size * 2 + 2] = '\n';
+    int val;
     for (int i = 0; i < size; ++i) {
-        // display[(i + 1) * cols + 0] = '|';
         for (int j = 0; j < size; ++j) {
-            int val = (*(pArr + i))[j];
+            val = (*(pArr + i))[j];
             if (val == len) {
-                display[(i + 1) * cols + 0 + j * 2 + 1] = '{';
-                display[(i + 1) * cols + 0 + j * 2 + 2] = '}';
+                CA_AppendString(pDisplay, "\033[36m{}\033[0m");
             } else if (val > 0) {
-                display[(i + 1) * cols + 0 + j * 2 + 1] = '(';
-                display[(i + 1) * cols + 0 + j * 2 + 2] = ')';
-            } else if (UD_FoodJudge(val)) {
-                display[(i + 1) * cols + 0 + j * 2 + 1] = '$';
-                display[(i + 1) * cols + 0 + j * 2 + 2] = '1' + (-val) / 10;
+                CA_AppendString(pDisplay, "\033[32m()\033[0m");
             } else if (val == WALL) {
-                display[(i + 1) * cols + 0 + j * 2 + 1] = 'X';
-                display[(i + 1) * cols + 0 + j * 2 + 2] = 'X';
+                CA_AppendString(pDisplay, "\033[41;37mXX\033[0m");
+            } else if (UD_FoodJudge(val)) {
+                CA_AppendString(pDisplay, "\033[33m$");
+                CA_AppendChar(pDisplay, '1' + (-val) / 10);
+                CA_AppendString(pDisplay, "\033[0m");
             } else {
-                // display[(i + 1) * cols + 0 + j * 2 + 1] = ' ';
-                // display[(i + 1) * cols + 0 + j * 2 + 2] = ' ';
+                CA_AppendString(pDisplay, "  ");
             }
         }
-        // display[(i + 1) * cols + 0 + size * 2 + 1] = '|';
-        display[(i + 1) * cols + 0 + size * 2 + 2] = '\n';
+        if (i < size - 1)
+            CA_AppendChar(pDisplay, '\n');
     }
-    // for (int i = 0; i <= size; ++i) {
-    //     display[(size + 1) * cols + i * 2 + 1] = '-';
-    // }
-    display[(size + 1) * cols + size * 2 + 2] = '\0';
     SC_Clear();
-    fputs(display, stdout);
+    fputs(pDisplay->string, stdout);
+    CA_Delete(&pDisplay);
 }
 
 /**
@@ -285,7 +272,7 @@ void SC_Draw(int *map, int size, int len) {
  */
 void SC_Resize(int size) {
     char cmd[50];
-    sprintf(cmd, "mode con cols=%d lines=%d", size * 2 + 2, size + 2);
+    sprintf(cmd, "mode con cols=%d lines=%d", size * 2, size);
     system(cmd);
 }
 
