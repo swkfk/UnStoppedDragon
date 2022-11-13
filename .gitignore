@@ -1,3 +1,6 @@
 *.exe
 *.zip
 *.7z
+*.o
+*.rc
+*.ico

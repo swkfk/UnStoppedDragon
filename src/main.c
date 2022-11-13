@@ -3,7 +3,6 @@
  * @author kai_Ker (kai_Ker@buaa.edu.cn)
  * @brief the source file of the unstopped dragon game
  * @date 2022-11-04
- * @version 1.11
  *
  * @copyright Copyright (c) 2022
  *
@@ -33,6 +32,8 @@
  *
  * if eat the food, every value will plus one, before minus one
  */
+#include "ConstDef.h"
+#include "MapLoader.h"
 #include "Utils/CharArray.h"
 #include <conio.h>
 #include <stdbool.h>
@@ -45,28 +46,9 @@
 #define NEXT(_base, _size) (((_base) + 1) % (_size))
 #define PREV(_base, _size) (((_base) + -1 + (_size)) % (_size))
 
-#define KY_ESC 27
-#define KY_SPACE 32
-#define KY_UP 72
-#define KY_DOWN 80
-#define KY_LEFT 75
-#define KY_RIGHT 77
-
-#define KY_NULL 224
-
-#define FOOD 0xffffff00 // food: 0xffffff00 ~ 0xffffffff
-#define WALL 0xffff0000
-
-#define DIRECTION_UP 1
-#define DIRECTION_DOWN -1
-#define DIRECTION_LEFT 2
-#define DIRECTION_RIGHT -2
-
-#define SIZE 24
-
 // CR: core function
 void CR_ConsoleInit();
-void CR_Init(int *, int, int *);
+void CR_Init(int **, int *, int *, int);
 
 // SC: screen & window title
 void SC_Draw(int *, int, int);
@@ -81,7 +63,6 @@ bool SC_ExitWidget(int, int);
 bool UD_Move(int, int *, int, int);
 bool UD_EatFood(int, int *, int, int);
 void UD_SpawnFood(int *, int);
-void UD_SpawnWall(int *, int);
 bool UD_FoodJudge(int);
 
 int main(void) {
@@ -92,7 +73,9 @@ int main(void) {
     int score_time; // add one score every 5 frames
 
     // map: `0` -> empty; `FOOD(-1)` -> food; `>0` -> the body
-    int map[SIZE][SIZE];
+    int *map;
+    int  size;
+    int  map_id;
 
     CR_ConsoleInit();
 
@@ -100,8 +83,13 @@ RESTART:
     score      = 0;
     len        = 3;
     score_time = 0;
-
-    CR_Init((int *) map, SIZE, &direction);
+    printf("Choose a map:\n");
+    for (int i = 0; i < i_builtin_map_cont; ++i) {
+        printf("%d. %s\n", i + 1, builtin_raw_map[i].name);
+    }
+    while (scanf_s("%d", &map_id, sizeof(map_id)), map_id < 1 || map_id > i_builtin_map_cont)
+        ;
+    CR_Init(&map, &size, &direction, map_id - 1);
     while (true) {
         // _kbhit() -> return true if keyboard is hit
         if (_kbhit()) {
@@ -156,21 +144,20 @@ RESTART:
             ++score;
             score_time = 0;
         }
-
         // judge whether the food was eaten at first
-        if (UD_EatFood(direction, (int *) map, SIZE, len)) {
+        if (UD_EatFood(direction, (int *) map, size, len)) {
             score += 5;
             ++len;
-            UD_SpawnFood((int *) map, SIZE);
+            UD_SpawnFood((int *) map, size);
         }
 
         // spawn the food randomly
         if (rand() % 15 == 1) {
-            UD_SpawnFood((int *) map, SIZE);
+            UD_SpawnFood((int *) map, size);
         }
 
         // move the snake and judge whether bump the wall or the body
-        if (UD_Move(direction, (int *) map, SIZE, len)) {
+        if (UD_Move(direction, (int *) map, size, len)) {
             SC_GameOver(score, len);
             if (SC_ExitWidget(score, len)) {
                 system("pause>nul");
@@ -181,7 +168,7 @@ RESTART:
         }
 
         // draw the canve
-        SC_Draw((int *) map, SIZE, len);
+        SC_Draw((int *) map, size, len);
 
         // set the window title
         SC_Title(score, len);
@@ -210,23 +197,22 @@ void CR_ConsoleInit() {
  * @param map
  * @param size
  */
-void CR_Init(_Out_ int *map, _In_ int size, _Out_ int *direction) {
+void CR_Init(_Out_ int **map, _Out_ int *psize, _Out_ int *direction, _In_ int map_id) {
     while (_kbhit()) {
         _getch();
     }
 
     *direction = (rand() % 2 + 1) * ((rand() % 2) ? 1 : -1);
-    memset(map, 0, size * size * sizeof(int));
-    ((int(*)[size]) map)[SIZE / 2][SIZE / 2 - 1] = (*direction == DIRECTION_RIGHT ? 1 : 3);
-    ((int(*)[size]) map)[SIZE / 2][SIZE / 2]     = 2;
-    ((int(*)[size]) map)[SIZE / 2][SIZE / 2 + 1] = (*direction == DIRECTION_RIGHT ? 3 : 1);
-    UD_SpawnWall(map, size);
+    ML_LoadBuiltinMap(psize, map, map_id);
+    ((int(*)[*psize])(*map))[*psize / 2][*psize / 2 - 1] = (*direction == DIRECTION_RIGHT ? 1 : 3);
+    ((int(*)[*psize])(*map))[*psize / 2][*psize / 2]     = 2;
+    ((int(*)[*psize])(*map))[*psize / 2][*psize / 2 + 1] = (*direction == DIRECTION_RIGHT ? 3 : 1);
 
-    SC_Resize(size);
+    SC_Resize(*psize);
     SC_Clear();
     srand((unsigned int) time(NULL));
     for (int i = 0; i < 3; ++i) {
-        UD_SpawnFood(map, size);
+        UD_SpawnFood(*map, *psize);
     }
 }
 
@@ -460,28 +446,6 @@ void UD_SpawnFood(int *map, int size) {
             return;
         }
     }
-}
-
-/**
- * @brief spawn wall according the designation
- *
- * @param map
- * @param size
- */
-void UD_SpawnWall(int *map, int size) {
-    int(*pArr)[size] = (int(*)[size]) map;
-
-    pArr[0][0] = pArr[0][1] = pArr[1][0] = pArr[1][1] = WALL;
-    pArr[size - 1][0] = pArr[size - 1][1] = pArr[size - 2][0] = pArr[size - 2][1] = WALL;
-    pArr[0][size - 1] = pArr[1][size - 1] = pArr[0][size - 2] = pArr[1][size - 2] = WALL;
-    pArr[size - 1][size - 1] = pArr[size - 1][size - 2] = pArr[size - 2][size - 1] = pArr[size - 2][size - 2] = WALL;
-
-    pArr[0][size / 3] = pArr[0][2 * size / 3] = WALL;
-    pArr[1][size / 3] = pArr[1][2 * size / 3] = WALL;
-    pArr[size - 1][size / 3] = pArr[size - 1][2 * size / 3] = WALL;
-    pArr[size - 2][size / 3] = pArr[size - 2][2 * size / 3] = WALL;
-    pArr[size / 3][size / 3] = pArr[size / 3][2 * size / 3] = WALL;
-    pArr[size / 3 * 2][size / 3] = pArr[size / 3 * 2][2 * size / 3] = WALL;
 }
 
 /**
